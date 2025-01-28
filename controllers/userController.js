@@ -92,6 +92,32 @@ const userController = {
       response.json({ status: "Erro ao criar usuário", message: error });
     }
   },
+
+  updateUser: async (request, response) => {
+    try {
+      console.log("Updating User:", request.params.id);
+  
+      const userRef = admin.firestore().collection("Users").doc(request.params.id);
+
+      const doc = await userRef.get();
+      if (!doc.exists) {
+        return response.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      const updates = request.body;
+      await userRef.update(updates);
+  
+      const updatedDoc = await userRef.get();
+      return response.json({
+        message: "Usuário atualizado com sucesso",
+        data: updatedDoc.data(),
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar o usuário:", error);
+      return response.status(500).json({ message: "Erro interno no servidor", error });
+    }
+  },
+  
 };
 
 export default userController;

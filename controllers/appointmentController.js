@@ -64,6 +64,42 @@ const appointmentController = {
     }
   },
 
+  getAppointmentsByProfessionalIdInCurrentMonth: async (request, response) => {
+    console.log("Get Appointments by Professional Id in current month");
+    console.log(request.params);
+  
+    try {
+      const appointmentsRef = admin.firestore().collection("Appointments");
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1; // Mês em Firestore é baseado em 1 (janeiro = 1)
+      
+      console.log(`Current Year: ${currentYear}, Current Month: ${currentMonth}`);
+      
+      const snapshot = await appointmentsRef
+        .where("professionalId", "==", request.params.professionalId)
+        .where("appointmentDate.year", "==", currentYear) // Mesmo ano
+        .where("appointmentDate.month", "==", currentMonth) // Mesmo mês
+        .get();
+  
+      if (snapshot.empty) {
+        return response.status(404).json({ message: "No appointments found for this professional in the current month" });
+      }
+  
+      const appointments = [];
+      snapshot.forEach(doc => {
+        appointments.push({ id: doc.id, ...doc.data() });
+      });
+      
+      console.log(appointments);
+      
+      response.json(appointments);
+    } catch (error) {
+      console.error("Error getting appointments: ", error);
+      response.status(500).json({ message: "Error getting appointments" });
+    }  
+  },
+
   createAppointment: async (request, response) => {
     console.log("Create Appointment");
     const appointment = {
