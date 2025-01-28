@@ -15,16 +15,23 @@ const searchPsychologistsController = {
           if (snapshot.empty) {
             return response.status(404).json({ message: "Nenhum resultado encontrado." });
           }
+
+          const normalizeString = (str) => {
+            return str
+              .normalize("NFD") 
+              .replace(/[\u0300-\u036f]/g, ""); 
+          };
     
           const filteredPsychologists = snapshot.docs
           .map(doc => doc.data())
           .filter(user => {
-            const searchLower = searchTerm.toLowerCase();
+            const normalizedSearchTerm = normalizeString(searchTerm.toLowerCase());
+            console.log('333: '+normalizedSearchTerm);
             return (
-              user.name?.toLowerCase().includes(searchLower) || 
-              user.lastname?.toLowerCase().includes(searchLower) || 
-              user.bio?.toLowerCase().includes(searchLower) ||
-              user.title?.toLowerCase().includes(searchLower)
+              normalizeString(user.name?.toLowerCase()).includes(normalizedSearchTerm) || 
+              normalizeString(user.lastname?.toLowerCase()).includes(normalizedSearchTerm) || 
+              user.bio?.toLowerCase().includes(normalizedSearchTerm) ||
+              user.title?.toLowerCase().includes(normalizedSearchTerm)
             );
           });
   
