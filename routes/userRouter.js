@@ -12,4 +12,5 @@ router.route("/users/:id").get((req, res) => userController.getUserById(req, res
 
 router.route("/users/checkIfIsProfessional/:id").get((req, res) => userController.checkIfUserIsProfessional(req, res));
 
+
 export default router;
