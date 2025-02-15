@@ -90,7 +90,8 @@ const messageController = {
                         contactUserId,
                         lastMessage: message.text,
                         createdAt: message.createdAt,
-                        contactName: "" // Preencheremos depois com a busca no Firestore
+                        contactName: "", // Preencheremos depois com a busca no Firestore
+                        photoURL: "" // Adicionar campo para photoURL
                     };
                 }
             });
@@ -105,9 +106,12 @@ const messageController = {
 
                 usersSnapshot.docs.forEach(doc => {
                     const userId = doc.id;
-                    const userName = doc.data().name + " " + doc.data().last_name || "Usuário Desconhecido";
+                    const userData = doc.data();
+                    const userName = userData.name + " " + userData.last_name || "Usuário Desconhecido";
+                    const photoURL = userData.photoURL || ""; // Obter photoURL do documento
                     if (lastMessages[userId]) {
                         lastMessages[userId].contactName = userName;
+                        lastMessages[userId].photoURL = photoURL; // Adicionar photoURL ao objeto
                     }
                 });
             }
