@@ -59,11 +59,11 @@ const messageController = {
         try {
             const userId = request.params.userId;
 
-            //Buscar todas as mensagens do usuário
+            // Buscar todas as mensagens do usuário
             const snapshot = await admin.firestore()
                 .collection("messages")
-                .where("participants", "array-contains", userId) 
-                .orderBy("createdAt", "desc") 
+                .where("participants", "array-contains", userId)
+                .orderBy("createdAt", "desc")
                 .get();
 
             if (snapshot.empty) {
@@ -87,7 +87,7 @@ const messageController = {
 
                 if (!lastMessages[contactUserId]) {
                     lastMessages[contactUserId] = {
-                        contactUserId   ,
+                        contactUserId,
                         lastMessage: message.text,
                         createdAt: message.createdAt,
                         contactName: "" // Preencheremos depois com a busca no Firestore
@@ -95,7 +95,7 @@ const messageController = {
                 }
             });
 
-            // **3️⃣ Buscar os nomes dos contatos na coleção "Users"**
+            // Buscar os nomes dos contatos na coleção "Users"
             const userIds = Object.keys(lastMessages);
             if (userIds.length > 0) {
                 const usersSnapshot = await admin.firestore()
@@ -105,85 +105,86 @@ const messageController = {
 
                 usersSnapshot.docs.forEach(doc => {
                     const userId = doc.id;
-                    const userName = doc.data().name +" "+doc.data().last_name || "Usuário Desconhecido";
+                    const userName = doc.data().name + " " + doc.data().last_name || "Usuário Desconhecido";
                     if (lastMessages[userId]) {
                         lastMessages[userId].contactName = userName;
                     }
                 });
             }
 
-            // **4️⃣ Retornar o JSON estruturado**
-            response.json(lastMessages);
+            // Retornar o JSON estruturado como um array
+            const lastMessagesArray = Object.values(lastMessages);
+            response.json(lastMessagesArray);
         } catch (error) {
             response.status(500).json({ error: "Erro ao buscar últimas mensagens das conversas", details: error.message });
         }
     },
 
     getUserConversations: async (request, response) => {
-            try {
-                const { userId, contactId } = request.params;
+        try {
+            const { userId, contactId } = request.params;
 
-                const snapshot = await admin.firestore()
-                    .collection("messages")
-                    .where("participants", "array-contains", userId)
-                    .get();
+            const snapshot = await admin.firestore()
+                .collection("messages")
+                .where("participants", "array-contains", userId)
+                .get();
 
-                const filteredMessages = snapshot.docs.filter(doc => {
-                    const data = doc.data();
-                    return data.participants.includes(contactId);
-                });
+            const filteredMessages = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.participants.includes(contactId);
+            });
 
-                if (filteredMessages.length === 0) {
-                    return response.json({ message: "Nenhuma conversa encontrada." });
-                }
-
-                const messages = filteredMessages.map(doc => {
-                    const data = doc.data();
-                    return {
-                        ...data,
-                        messageId: doc.id,
-                        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
-                    };
-                });
-
-                // Agrupar mensagens por contato
-                const conversations = {};
-                const uniqueContacts = new Set();
-
-                messages.forEach(message => {
-                    const contactUserId = message.senderId === userId ? message.receiverId : message.senderId;
-
-                    if (!conversations[contactUserId]) {
-                        conversations[contactUserId] = [];
-                    }
-                    conversations[contactUserId].push(message);
-                    uniqueContacts.add(contactUserId);
-                });
-
-                // Buscar nomes dos contatos na coleção "Users"
-                const contactIds = Array.from(uniqueContacts);
-                const usersSnapshot = await admin.firestore()
-                    .collection("Users")
-                    .where(admin.firestore.FieldPath.documentId(), "in", contactIds)
-                    .get();
-
-                const usersMap = {};
-                usersSnapshot.docs.forEach(doc => {
-                    usersMap[doc.id] = doc.data().name + " " + doc.data().last_name;
-                });
-
-                // Adiciona os nomes dos contatos nas conversas
-                const conversationsWithNames = Object.entries(conversations).map(([contactId, messages]) => ({
-                    contactId,
-                    contactName: usersMap[contactId] || "Desconhecido", // Se não encontrar o nome, usa "Desconhecido"
-                    messages
-                }));
-
-                response.json(conversationsWithNames);
-            } catch (error) {
-                response.status(500).json({ error: "Erro ao buscar conversas do usuário", details: error.message });
+            if (filteredMessages.length === 0) {
+                return response.json({ message: "Nenhuma conversa encontrada." });
             }
+
+            const messages = filteredMessages.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    messageId: doc.id,
+                    createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null
+                };
+            });
+
+            // Agrupar mensagens por contato
+            const conversations = {};
+            const uniqueContacts = new Set();
+
+            messages.forEach(message => {
+                const contactUserId = message.senderId === userId ? message.receiverId : message.senderId;
+
+                if (!conversations[contactUserId]) {
+                    conversations[contactUserId] = [];
+                }
+                conversations[contactUserId].push(message);
+                uniqueContacts.add(contactUserId);
+            });
+
+            // Buscar nomes dos contatos na coleção "Users"
+            const contactIds = Array.from(uniqueContacts);
+            const usersSnapshot = await admin.firestore()
+                .collection("Users")
+                .where(admin.firestore.FieldPath.documentId(), "in", contactIds)
+                .get();
+
+            const usersMap = {};
+            usersSnapshot.docs.forEach(doc => {
+                usersMap[doc.id] = doc.data().name + " " + doc.data().last_name;
+            });
+
+            // Adiciona os nomes dos contatos nas conversas
+            const conversationsWithNames = Object.entries(conversations).map(([contactId, messages]) => ({
+                contactId,
+                contactName: usersMap[contactId] || "Desconhecido", // Se não encontrar o nome, usa "Desconhecido"
+                messages
+            }));
+
+            response.json(conversationsWithNames);
+        } catch (error) {
+            response.status(500).json({ error: "Erro ao buscar conversas do usuário", details: error.message });
         }
-    };
+    }
+};
 
 export default messageController;
