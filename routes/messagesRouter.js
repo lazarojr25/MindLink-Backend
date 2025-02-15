@@ -8,6 +8,6 @@ router.route("/messages").post((req, res) => messageController.createMessage(req
 router.route("/messages").get((req,res) => messageController.getAllMessages(res,res));
 router.route("/messages/:userId").get((req,res) => messageController.getMessagesByUserId(req,res));
 router.route("/messages/lastMessage/:userId").get((req,res) => messageController.getLastMessagesByUser(req,res));
-router.route("/messages/conversations/:userId").get((req,res) => messageController.getUserConversations(req,res));
+router.route("/messages/conversations/:userId/:contactId").get((req,res) => messageController.getUserConversations(req,res));
 
 export default router;
