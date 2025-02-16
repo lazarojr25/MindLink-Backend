@@ -135,6 +135,55 @@ const appointmentController = {
       response.status(500).json({ message: "Error getting appointments" });
     }  
   },
+  getAppointmentsByUserIdInMonth: async (request, response) => {
+    console.log("Get Appointments by user Id in month requested");
+
+    try {
+        // Obtém o ID do paciente da URL
+        const userId = request.params.userId;
+
+        // Obtém o mês da query string e converte para número
+        const monthToSearch = parseInt(request.query.month);
+
+        // Obtém o ano atual
+        const currentYear = request.query.year ? parseInt(request.query.year) : new Date().getFullYear();
+
+        console.log(`Fetching appointments for Patient ID: ${userId}, Month: ${monthToSearch}, Year: ${currentYear}`);
+
+        if (!monthToSearch || isNaN(monthToSearch) || monthToSearch < 1 || monthToSearch > 12) {
+            return response.status(400).json({ message: "Invalid month parameter. Please provide a value between 1 and 12." });
+        }
+
+        // Referência ao Firestore
+        const appointmentsRef = admin.firestore().collection("Appointments");
+
+        // Busca os agendamentos no Firestore pelo ID do paciente e mês/ano específicos
+        const snapshot = await appointmentsRef
+            .where("appointmentDate.year", "==", currentYear)
+            .where("appointmentDate.month", "==", monthToSearch)
+            .get();
+
+        if (snapshot.empty) {
+            return response.status(404).json({ message: "No appointments found for this user in the selected month" });
+        }
+
+        // Converte os resultados para um array
+        const appointments = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.patientId === userId || data.professionalId === userId) {
+                appointments.push({ id: doc.id, ...data });
+            }
+        });
+
+        console.log(`Found ${appointments.length} appointments`);
+        response.json(appointments);
+
+    } catch (error) {
+        console.error("Error getting appointments: ", error);
+        response.status(500).json({ message: "Error getting appointments" });
+    }
+  },
 
   createAppointment: async (request, response) => {
     console.log("Create Appointment");

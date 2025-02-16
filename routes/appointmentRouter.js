@@ -4,7 +4,7 @@ const router = express.Router();
 
 import appointmentController from "../controllers/appointmentController.js";
 
-router.route("/appointment").get((req, res) => appointmentController.getAllAppointment(req, res));
+router.route("/appointment").get((req, res) => appointmentController.getAllAppointments(req, res));
 
 router.route("/appointment").post((req, res) => appointmentController.createAppointment(req, res));
 
@@ -16,4 +16,5 @@ router.route("/appointments/currentmonthprofessional/:professionalId").get((req,
 
 router.route("/appointments/currentmonthpatient/:patientId").get((req, res) => appointmentController.getAppointmentsByPatientIdInCurrentMonth(req, res));
 
+router.route("/appointments/getByIdAndMonth/:userId").get((req, res) => appointmentController.getAppointmentsByUserIdInMonth(req, res));
 export default router;
