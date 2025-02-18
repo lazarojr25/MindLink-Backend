@@ -88,7 +88,7 @@ const appointmentController = {
   
       const appointments = [];
       snapshot.forEach(doc => {
-        appointments.push({ id: doc.id, ...doc.data() });
+        appointments.push({ appointmentId: doc.id, ...doc.data() });
       });
       
       console.log(appointments);
@@ -124,7 +124,7 @@ const appointmentController = {
   
       const appointments = [];
       snapshot.forEach(doc => {
-        appointments.push({ id: doc.id, ...doc.data() });
+        appointments.push({ appointmentId: doc.id, ...doc.data() });
       });
       
       console.log(appointments);
@@ -172,7 +172,7 @@ const appointmentController = {
         snapshot.forEach(doc => {
             const data = doc.data();
             if (data.patientId === userId || data.professionalId === userId) {
-                appointments.push({ id: doc.id, ...data });
+                appointments.push({ appointmentId: doc.id, ...data });
             }
         });
 
