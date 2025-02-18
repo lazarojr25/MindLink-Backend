@@ -187,119 +187,126 @@ const appointmentController = {
 
   createAppointment: async (request, response) => {
     console.log("Create Appointment");
-  
-    const appointment = {
-      patientName: request.body.patientName,
-      patientId: request.body.patientId,
-      professionalName: request.body.professionalName,
-      professionalId: request.body.professionalId,
-      appointmentDate: request.body.appointmentDate,
-    };
-  
-    console.log("date: " + JSON.stringify(appointment.appointmentDate));
-  
+
     try {
-      const dayNames = [
-        "Sunday", "Monday", "Tuesday", "Wednesday",
-        "Thursday", "Friday", "Saturday",
-      ];
-  
-      const weekDayValue = new Date(
-        appointment.appointmentDate.year,
-        appointment.appointmentDate.month - 1, // Mês começa do zero
-        appointment.appointmentDate.day
-      ).getDay();
-  
-      const appointmentDateTime = new Date(
-        appointment.appointmentDate.year,
-        appointment.appointmentDate.month - 1,
-        appointment.appointmentDate.day,
-        appointment.appointmentDate.hour,
-        appointment.appointmentDate.minutes,
-        0 // Zerando segundos para consistência
-      );
-  
-      console.log(`Weekday: ${weekDayValue} (${dayNames[weekDayValue]})`);
-  
-      // 🔹 Verificação da disponibilidade do profissional
-      let availabilityQuery = await admin
-        .firestore()
-        .collection("Availability")
-        .where("professionalId", "==", appointment.professionalId)
-        .where("dayOfWeek", "==", dayNames[weekDayValue])
-        .get();
-  
-      let availableSlots = availabilityQuery.docs
-        .map(doc => doc.data())
-        .filter(avail => avail.status !== "Cancelado");
-  
-      if (availableSlots.length === 0) {
-        return response.status(400).json({
-          status: "Erro",
-          message: "Não há disponibilidade para o profissional neste dia.",
+        const appointmentsRef = admin.firestore().collection("Appointments");
+        console.log(request.body);
+
+        const appointment = {
+            patientName: request.body.patientName,
+            patientId: request.body.patientId,
+            professionalName: request.body.professionalName,
+            professionalId: request.body.professionalId,
+            appointmentDate: request.body.appointmentDate,
+            status: "Solicitada"
+        };
+
+        console.log("🔍 Data recebida:", appointment.appointmentDate);
+
+        // Verifica se os dados obrigatórios estão presentes
+        if (!appointment.patientId || !appointment.professionalId || !appointment.appointmentDate) {
+            return response.status(400).json({
+                status: "Erro",
+                message: "Dados obrigatórios ausentes para criar a consulta."
+            });
+        }
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+        const weekDayValue = new Date(
+            appointment.appointmentDate.year,
+            appointment.appointmentDate.month - 1,
+            appointment.appointmentDate.day
+        ).getDay();
+
+        const appointmentDateTime = new Date(
+            appointment.appointmentDate.year,
+            appointment.appointmentDate.month - 1,
+            appointment.appointmentDate.day,
+            appointment.appointmentDate.hour,
+            appointment.appointmentDate.minutes,
+            appointment.appointmentDate.seconds || 0
+        );
+
+        console.log(" Verificando disponibilidade para:", appointment.professionalId);
+        console.log(" Dia da semana:", weekDayValue, dayNames[weekDayValue]);
+
+        // Verificar disponibilidade do profissional
+        const availabilityQuery = await admin.firestore().collection("Availability")
+            .where("professionalId", "==", appointment.professionalId)
+            .where("dayOfWeek", "==", dayNames[weekDayValue])
+            .get();
+
+        console.log(" Documentos encontrados na disponibilidade:", availabilityQuery.docs.length);
+
+        if (availabilityQuery.empty) {
+            return response.status(400).json({
+                status: "Erro",
+                message: "Não há disponibilidade para o profissional neste dia."
+            });
+        }
+
+        // Pegando o primeiro resultado de disponibilidade
+        const availability = availabilityQuery.docs[0].data();
+
+        const availabilityStartTime = new Date(appointmentDateTime);
+        const availabilityEndTime = new Date(appointmentDateTime);
+        availabilityStartTime.setHours(availability.startHour, availability.startMinute, 0);
+        availabilityEndTime.setHours(availability.endHour, availability.endMinute, 0);
+
+        console.log(" Horário de atendimento:", availabilityStartTime, "-", availabilityEndTime);
+        console.log(" Horário solicitado:", appointmentDateTime);
+
+        // Valida se o horário solicitado está dentro da disponibilidade
+        if (appointmentDateTime < availabilityStartTime || appointmentDateTime > availabilityEndTime) {
+            return response.status(400).json({
+                status: "Erro",
+                message: "O horário da consulta está fora da disponibilidade do profissional."
+            });
+        }
+
+        console.log(" Verificando conflitos de agendamento...");
+        const appointmentConflictQuery = await appointmentsRef
+            .where("professionalId", "==", appointment.professionalId)
+            .where("appointmentDate.year", "==", appointment.appointmentDate.year)
+            .where("appointmentDate.month", "==", appointment.appointmentDate.month)
+            .where("appointmentDate.day", "==", appointment.appointmentDate.day)
+            .where("appointmentDate.hour", "==", appointment.appointmentDate.hour)
+            .where("appointmentDate.minutes", "==", appointment.appointmentDate.minutes)
+            .get();
+
+        if (!appointmentConflictQuery.empty) {
+            const filteredAppointments = appointmentConflictQuery.docs.filter(doc =>
+                doc.data().status !== "Cancelada"
+            );
+
+            if (filteredAppointments.length > 0) {
+                return response.status(400).json({
+                    status: "Erro",
+                    message: "Já existe uma consulta marcada para este horário com este profissional."
+                });
+            }
+        }
+
+        console.log(" Criando consulta no Firestore...");
+        const docRef = await admin.firestore().collection("Appointments").add(appointment);
+
+        return response.status(201).json({
+            status: "Sucesso",
+            message: "Consulta criada com sucesso!",
+            appointmentId: docRef.id
         });
-      }
-  
-      // 🔹 Verifica se o horário do agendamento está dentro do horário disponível
-      const availability = availableSlots[0]; // Supondo que há apenas um registro por dia
-      const availabilityStartTime = new Date(appointmentDateTime);
-      const availabilityEndTime = new Date(appointmentDateTime);
-  
-      availabilityStartTime.setHours(availability.startHour, availability.startMinute, 0);
-      availabilityEndTime.setHours(availability.endHour, availability.endMinute, 0);
-  
-      if (
-        appointmentDateTime < availabilityStartTime ||
-        appointmentDateTime > availabilityEndTime
-      ) {
-        return response.status(400).json({
-          status: "Erro",
-          message: "O horário da consulta está fora da disponibilidade do profissional.",
-        });
-      }
-  
-      // 🔹 Verifica conflitos com outras consultas marcadas
-      const startTime = new Date(appointmentDateTime);
-      const endTime = new Date(appointmentDateTime);
-      endTime.setMinutes(endTime.getMinutes() + 30); // Supondo duração de 30 minutos
-  
-      const appointmentConflictQuery = await admin
-        .firestore()
-        .collection("Appointments")
-        .where("professionalId", "==", appointment.professionalId)
-        .where("appointmentTimestamp", ">=", startTime.getTime())
-        .where("appointmentTimestamp", "<", endTime.getTime())
-        .get();
-  
-      if (!appointmentConflictQuery.empty) {
-        return response.status(400).json({
-          status: "Erro",
-          message: "Já existe uma consulta marcada para este horário com este profissional.",
-        });
-      }
-  
-      // 🔹 Criando a consulta sem conflitos
-      const appointmentData = {
-        ...appointment,
-        appointmentTimestamp: appointmentDateTime.getTime(), // Adiciona timestamp para melhor busca
-      };
-  
-      const docRef = await admin.firestore().collection("Appointments").add(appointmentData);
-  
-      return response.json({
-        status: "Consulta criada com sucesso!",
-        appointmentId: docRef.id,
-      });
-  
+
     } catch (error) {
-      console.error("Erro ao criar consulta:", error);
-      return response.status(500).json({
-        status: "Erro ao criar consulta",
-        message: error.message,
-      });
-    }
+        console.error(" Erro ao criar consulta:", error);
+
+        return response.status(500).json({
+            status: "Erro",
+            message: "Ocorreu um erro inesperado ao criar a consulta.",
+            details: error.message || "Erro desconhecido"
+        });
+      }
   },
-  
 
   updateAppointmentStatus: async (request, response) => {
       try {
