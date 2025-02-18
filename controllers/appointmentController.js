@@ -211,7 +211,7 @@ const appointmentController = {
             });
         }
 
-        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayNames = [ "Domingo","Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
         const weekDayValue = new Date(
             appointment.appointmentDate.year,
